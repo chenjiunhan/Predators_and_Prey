@@ -1,0 +1,362 @@
+import socketserver
+from random import randint
+
+from time import sleep
+import numpy as np
+import matplotlib.pyplot as plt
+
+NUM_INPUTS_AGENT = 3
+NUM_PREDATOR = 3
+NUM_PREY = 1
+
+N_GENERATIONS = 500000
+MUT_STRENGTH = 1.0
+MUT_STRENGTHS = [1.0] * NUM_PREDATOR        # initial step size (dynamic mutation strength)
+MUT_MAX = 5.0
+MUT_MAXS = [5.0] * NUM_PREDATOR
+I_S = NUM_INPUTS_AGENT * (NUM_PREDATOR + NUM_PREY)
+H_S = 5
+DNA_SIZE = H_S * I_S#H_S*2 + 2             # DNA (real number)
+O_S = 2
+pk_rate = 1/5
+
+PLAY_PERIOD = 30;
+parent = (np.random.rand(I_S, H_S) / 10, np.random.rand(H_S, O_S) / 10, np.random.rand(1, 1), np.random.rand(1, 1))
+kid = (np.random.rand(I_S, H_S) / 10, np.random.rand(H_S, O_S) / 10, np.random.rand(1, 1), np.random.rand(1, 1))
+
+parents = []
+for i in range(NUM_PREDATOR):
+    parents.append((np.random.rand(I_S, H_S) / 10, np.random.rand(H_S, O_S) / 10, np.random.rand(1, 1), np.random.rand(1, 1)))
+
+kids = []
+for i in range(NUM_PREDATOR):
+    kids.append((np.random.rand(I_S, H_S) / 10, np.random.rand(H_S, O_S) / 10, np.random.rand(1, 1), np.random.rand(1, 1)))
+
+
+def G(x): return 1 / (1 + np.exp(- 0.6 * x))
+
+sim_time = 0
+current_players = [0] * NUM_PREDATOR
+switch_times = [0] * NUM_PREDATOR
+parent_fitnesses = np.zeros((NUM_PREDATOR, ))
+kid_fitnesses = np.zeros((NUM_PREDATOR, ))
+count_plays = [0] * NUM_PREDATOR
+init_position_x = [-1000] * NUM_PREDATOR
+init_position_y = [-1000] * NUM_PREDATOR
+
+class MyTCPHandler(socketserver.BaseRequestHandler):
+    """
+    The RequestHandler class for our server.
+
+    It is instantiated once per connection to the server, and must
+    override the handle() method to implement communication to the
+    client.
+    """
+
+    def handle(self):
+
+        global switch_times, current_players, parent_fitnesses, kid_fitnesses, sim_time, MUT_STRENGTH, MUT_MAX, pk_rate, DNA_SIZE, parent, kid
+
+        # self.request is the TCP socket connected to the client
+        requestForUpdate = self.request.recv(1024)                
+
+        reset_flag = 0
+        while requestForUpdate != '':
+            
+            p_info_list = [] # prey
+            P_info_list = [] # predator            
+
+            self.data = requestForUpdate.strip()
+            
+            #print('selfdata:', self.data)
+            #print("{} wrote:".format(self.client_address[0]))
+            gazebo_info_split = self.data.decode("utf-8").rstrip('\0').split(";");
+            
+            for gazebo_info_single in gazebo_info_split:
+                #print(len(gazebo_info_single))
+                if gazebo_info_single == "":
+                    continue
+                #print(gazebo_info_single)
+                p_infos = gazebo_info_single.split(",")
+
+                #print(p_infos, len(p_infos))
+
+                if p_infos[0] == "w":
+                    continue
+
+                if p_infos[0] == "t":
+                    sim_time = float(p_infos[1])
+                    #print("sim: ", sim_time)
+                    continue
+
+                if (p_infos[0] == "p" or p_infos[0] == "P") and len(p_infos) < 5:
+                    continue
+
+                #p_id = float(p_infos[1])
+                p_x = float(p_infos[2])
+                p_y = float(p_infos[3])
+                p_yaw = float(p_infos[4].rstrip('\0')[0:5])
+                p_vector = np.array([p_x, p_y, p_yaw])
+                
+                if p_infos[0] == "p":                
+                    p_info_list.append(p_vector)
+                if p_infos[0] == "P":
+                    P_info_list.append(p_vector)
+            
+            ##### CHECK RESET
+
+            reset_failed = 0
+            for idx_1, P_info_1 in enumerate(P_info_list):
+                if init_position_x[idx_1] == -1000:
+                    init_position_x[idx_1] = P_info_1[0]
+                if init_position_y[idx_1] == -1000:
+                    init_position_y[idx_1] = P_info_1[1]
+            
+                if reset_flag == 1:
+                    if abs(P_info_1[0] - init_position_x[idx_1]) > 0.01 or abs(P_info_1[1] - init_position_y[idx_1]) > 0.01:
+                        print("RESET FAILED")
+                        reset_failed = 1
+                    else:
+                        pass
+
+                    switch_times[idx_1] = sim_time
+
+
+            if reset_flag == 1 and reset_failed == 1:
+                print("RESET AGAIN")
+                self.request.sendall(bytes("RESET;", "utf-8"))
+                self.request.sendall(bytes("1" + "," + "0.0" + "," + "0.0" + ";" + "2" + "," + "0.0" + "," + "0.0" + ";" + "3" + "," + "0.0" + "," + "0.0" + ";\n", "utf-8"))
+                requestForUpdate=self.request.recv(1024)
+                continue
+            else:
+                reset_flag = 0
+            #####
+
+            num_prey = len(p_info_list)
+            num_predator = len(P_info_list)
+
+            for idx_1, P_info_1 in enumerate(P_info_list):                
+                nn_input = np.zeros(NUM_INPUTS_AGENT * (num_predator + num_prey))
+                count_cross = 0;
+
+                for idx_2, P_info_2 in enumerate(P_info_list):                    
+                    if idx_1 == idx_2:
+                        nn_input[0:NUM_INPUTS_AGENT] = P_info_1
+                    else:
+                        nn_input_start = (count_cross + 1) * NUM_INPUTS_AGENT
+                        nn_input_end = (count_cross + 1) * NUM_INPUTS_AGENT + NUM_INPUTS_AGENT - 1 + 1
+                        nn_input[nn_input_start:nn_input_end] = P_info_2 - P_info_1
+                        count_cross = count_cross + 1
+
+                nn_input[- NUM_INPUTS_AGENT:] = p_info_list[0] - P_info_1                
+                
+                #print(p_info_list[0][0:2], P_info_1[0:2])    
+                #print(np.linalg.norm(p_info_list[0][0:2] - P_info_1[0:2]))
+                if sim_time < switch_times[idx_1] + PLAY_PERIOD:
+                    current_player_parameters = kid
+                else:
+                    predator_yaw_vector = np.array([np.cos(P_info_1[2]), np.sin(P_info_1[2])])
+                    predator_prey_vector = np.array(p_info_list[0][0:2] - P_info_1[0:2])
+
+
+                    cos_value = predator_yaw_vector.dot(predator_prey_vector) / (np.linalg.norm(predator_yaw_vector) * np.linalg.norm(predator_prey_vector))
+                    if idx_1 == 0:
+                        print("cos", cos_value)
+
+                    kid_fitnesses[idx_1] = 1 / np.linalg.norm(p_info_list[0][0:2] - P_info_1[0:2]) * cos_value
+                    print("SIM: ", abs(switch_times[idx_1] - sim_time))
+                    switch_times[idx_1] = sim_time
+
+                    '''
+                    if kid_fitnesses[idx_1] > parent_fitnesses[idx_1]:
+                        if idx_1 == 0:
+                            print("Kid is better")                        
+                            print("PARENT FITNESS:", parent_fitnesses[idx_1])
+                            print("KID FITNESS:", kid_fitnesses[idx_1])
+                        parents[idx_1] = kids[idx_1]
+                        parent_fitnesses[idx_1] = kid_fitnesses[idx_1]
+                        ps = 1.0
+                    else:
+                        if idx_1 == 0:  
+                            print("Parent is better")
+                            print("PARENT FITNESS:", parent_fitnesses[idx_1])
+                            print("KID FITNESS:", kid_fitnesses[idx_1])
+
+                        ps = 0.0
+                
+                    MUT_STRENGTHS[idx_1] *= np.exp(1/np.sqrt(DNA_SIZE+1) * (ps - pk_rate)/(1 - pk_rate))
+
+                    if MUT_STRENGTHS[idx_1] >= MUT_MAXS[idx_1]:
+                        MUT_STRENGTHS[idx_1] = 1.0
+                    if idx_1 == 0:
+                        print('MUT_STRENGTH', MUT_STRENGTHS[idx_1])
+                    '''
+                    
+                    #current_player_parameters = kids[idx_1]                    
+                    reset_flag = 1
+                    
+
+                if reset_flag != 1:                    
+                    wheel_speed = forward(nn_input, current_player_parameters[0], current_player_parameters[1], \
+                                                    current_player_parameters[2], current_player_parameters[3])[0]
+                    #print(nn_input)
+                    #print("Normal");
+                    self.request.sendall(bytes(str(idx_1 + 1) + "," + str(wheel_speed[0]) + "," + str(wheel_speed[1]) + ";", "utf-8"))
+                
+                                
+            if reset_flag == 1:
+                if sum(kid_fitnesses) > sum(parent_fitnesses):
+                    print("Kid is better")                        
+                    print("PARENT FITNESS:", sum(parent_fitnesses]))
+                    print("KID FITNESS:", sum(kid_fitnesses))
+                    parent = kid
+                    parent_fitnesses[idx_1] = kid_fitnesses[idx_1]
+                    ps = 1.0
+                else:
+                    print("Parent is better")
+                    print("PARENT FITNESS:", sum(parent_fitnesses))
+                    print("KID FITNESS:", sum(kid_fitnesses))
+
+                    ps = 0.0
+            
+                MUT_STRENGTH *= np.exp(1/np.sqrt(DNA_SIZE+1) * (ps - pk_rate)/(1 - pk_rate))
+
+                if MUT_STRENGTH >= MUT_MAX:
+                    MUT_STRENGTH = 1.0
+                print('MUT_STRENGTH', MUT_STRENGTH)
+
+                kid = make_kid(parent, MUT_STRENGTH)
+                for idx in range(NUM_PREDATOR):
+                    #kids[idx] = kid
+                    kid_fitnesses[idx] = 0.0
+                print("RESET!!!!!!!!!!")
+                self.request.sendall(bytes("RESET;", "utf-8"))
+                self.request.sendall(bytes("1" + "," + "0.0" + "," + "0.0" + ";" + "2" + "," + "0.0" + "," + "0.0" + ";" + "3" + "," + "0.0" + "," + "0.0" + ";\n", "utf-8"))
+                requestForUpdate=self.request.recv(1024)
+                continue
+                
+            self.request.sendall(bytes("\n", "utf-8"))
+
+            # just send back the same data, but upper-cased
+            requestForUpdate=self.request.recv(1024)
+
+###########################################
+
+# 1+1 ES Trainer
+
+###########################################
+
+
+
+
+def forward(x, w1, w2, b1, b2):
+    #x = np.reshape(x, (1, 1));
+    '''print("SHAPE")
+    print(x.shape)
+    print(w1.shape)
+    print(w2.shape)
+    print(b1.shape)
+    print(b2.shape)'''
+    a1 = x.dot(w1) + b1
+    z1 = G(a1)
+    #print(z1.shape)
+    y = z1.dot(w2) + b2
+    z2 = np.tanh(0.2 * y)
+    #print(z2.shape)
+
+    return z2
+
+def get_fitness(x, target):
+    global I_S
+    w1 = target[0]
+    w2 = target[1]
+    b1 = target[2]
+    b2 = target[3]
+    
+    #print(b1)
+    target = forward(x, w1, w2, b1, b2)
+    #print("Two values: ", target[0], F(x)[0])
+    fitness = -(target[0] - F(x)) ** 2
+    #print("Fitness", fitness)
+    return fitness
+
+def make_kid(parent, MUT_STRENGTH):
+    global H_S
+    
+    w_max = 5.0
+    w_min = -5.0
+    k0 = parent[0] + MUT_STRENGTH * np.random.randn(I_S, H_S)
+    k0[k0>w_max] = w_max
+    k0[k0<w_min] = w_min
+    k1 = parent[1] + MUT_STRENGTH * np.random.randn(H_S, O_S)
+    k1[k1>w_max] = w_max
+    k1[k1<w_min] = w_min
+    b0 = parent[2] + MUT_STRENGTH * np.random.randn(1, 1)
+    b0[b0>w_max] = w_max
+    b0[b0<w_min] = w_min
+    b1 = parent[3] + MUT_STRENGTH * np.random.randn(1, 1)
+    b1[b1>w_max] = w_max
+    b1[b1<w_min] = w_min
+    '''k0 = parent[0] + MUT_STRENGTH * (np.random.normal(0.0, 1.0, (I_S, H_S)))
+    k0[k0>w_max] = w_max
+    k0[k0<w_min] = w_min
+    k1 = parent[1] + MUT_STRENGTH * (np.random.normal(0.0, 1.0, (H_S, O_S)))
+    k1[k1>w_max] = w_max
+    k1[k1<w_min] = w_min
+    b0 = parent[2] + MUT_STRENGTH * (np.random.normal(0.0, 1.0, (1, 1)))
+    b0[b0>w_max] = w_max
+    b0[b0<w_min] = w_min
+    b1 = parent[3] + MUT_STRENGTH * (np.random.normal(0.0, 1.0, (1, 1)))
+    b1[b1>w_max] = w_max
+    b1[b1<w_min] = w_min'''
+    
+    k = (k0, k1, b0, b1)
+    return k
+
+def kill_bad(parent, kid):
+    global MUT_STRENGTH, pk_rate
+
+    x = (np.random.rand(1, I_S) - 0.5) * 100
+    fp = get_fitness(x, parent)[0]
+    fk = get_fitness(x, kid)[0]
+    
+    p_target = pk_rate
+    if fp < fk:     # kid better than parent
+        parent = kid
+        ps = 1.     # kid win -> ps = 1 (successful offspring)
+    else:
+        ps = 0.
+    
+    # adjust global mutation strength
+    MUT_STRENGTH *= np.exp(1/np.sqrt(DNA_SIZE+1) * (ps - p_target)/(1 - p_target))
+    if MUT_STRENGTH > MUT_MAX:
+        MUT_STRENGTH = MUT_MAX
+    #print("MUT_S: ", MUT_STRENGTH)
+    return parent
+
+# random init
+
+parent = (np.random.rand(I_S, H_S) / 10, np.random.rand(H_S, O_S) / 10, np.random.rand(1, 1), np.random.rand(1, 1))
+
+'''for i in range(N_GENERATIONS):    
+    kid = make_kid(parent)
+    parent = kill_bad(parent, kid)'''
+
+
+########################################
+
+#socket server
+
+########################################
+
+HOST, PORT = "127.0.0.1", 9527
+# Create the server, binding to localhost on port 9999
+
+server = socketserver.TCPServer((HOST, PORT), MyTCPHandler, False)
+
+server.allow_reuse_address = True
+# Activate the server; this will keep running until you
+# interrupt the program with Ctrl-C
+server.server_bind()
+server.server_activate()
+server.serve_forever()
