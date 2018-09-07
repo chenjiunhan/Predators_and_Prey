@@ -97,6 +97,9 @@ total_kid_fitness = 0.0
 prey_total_parent_fitness = 0.0
 prey_total_kid_fitness = 0.0
 
+prey_x = 0.0
+prey_y = 0.0
+
 average_cos = np.zeros((NUM_PREDATOR, ))
 average_speed = np.zeros((NUM_PREDATOR, ))
 average_cos_speed = np.zeros((NUM_PREDATOR, ))
@@ -124,8 +127,8 @@ y0_list = [0,0,0,0]
 wall_x_list = [1.0,-1.0,0.0,0.0]
 wall_y_list = [0.0,0.0,1.0,-1.0]
 
-sigma_x_list = np.array([1.0,1.0,1.0,1.0]) * 0.2
-sigma_y_list = np.array([1.0,1.0,1.0,1.0]) * 0.2
+sigma_x_list = np.array([1.0,1.0,1.0,1.0]) * 0.3
+sigma_y_list = np.array([1.0,1.0,1.0,1.0]) * 0.3
 
 wall_sigma_x_list = [0.1,0.1,0.0,0.0] 
 wall_sigma_y_list = [0.0,0.0,0.1,0.1]
@@ -149,7 +152,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
 
-        global switch_times, current_players, parent_fitnesses, kid_fitnesses, total_parent_fitness, total_kid_fitness, prey_parent_fitness, prey_kid_fitness, prey_total_parent_fitness, prey_total_kid_fitness, sim_time, MUT_STRENGTH, MUT_MAX, pk_rate, DNA_SIZE, parent, kid, good_fitness, good_fitness_prey, good_generation, count_generation, prey_parent, prey_kid, PREY_MUT_STRENGTH, left_s, right_s, update_prey, previous_position_x, previous_position_y, average_speed, average_cos, average_cos_speed, previous_sim_time, prey_average_cos_speed, ALTERNATIVE_FLAG, prey_average_min_distance, prey_average_speed, average_distance, x0_list, y0_list, sigma_x_list, sigma_y_list, heatmap_lock
+        global switch_times, current_players, parent_fitnesses, kid_fitnesses, total_parent_fitness, total_kid_fitness, prey_parent_fitness, prey_kid_fitness, prey_total_parent_fitness, prey_total_kid_fitness, sim_time, MUT_STRENGTH, MUT_MAX, pk_rate, DNA_SIZE, parent, kid, good_fitness, good_fitness_prey, good_generation, count_generation, prey_parent, prey_kid, PREY_MUT_STRENGTH, left_s, right_s, update_prey, previous_position_x, previous_position_y, average_speed, average_cos, average_cos_speed, previous_sim_time, prey_average_cos_speed, ALTERNATIVE_FLAG, prey_average_min_distance, prey_average_speed, average_distance, x0_list, y0_list, sigma_x_list, sigma_y_list, heatmap_lock, prey_x, prey_y
 
         # self.request is the TCP socket connected to the client
         requestForUpdate = self.request.recv(1024)                
@@ -225,6 +228,10 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
                 self.request.sendall(bytes(send_string, "utf-8"))
                 requestForUpdate=self.request.recv(1024)
                 continue
+
+            prey_x = p_info_list[0][0]
+            prey_y = p_info_list[0][1]
+
 
             for idx_1, P_info_1 in enumerate(Pp_info_list):                
                 if init_position_x[idx_1] == -1000:
@@ -731,7 +738,7 @@ def save_parent(name, parent):
     np.savetxt(parent_dir + name + '_b1.txt', parent[3])
 
 def draw_2d_heatmap_thread(name):
-    global x0_list, y0_list, sigma_x_list, sigma_y_list, wall_x_list, wall_y_list, wall_sigma_x_list, wall_sigma_y_list
+    global x0_list, y0_list, sigma_x_list, sigma_y_list, wall_x_list, wall_y_list, wall_sigma_x_list, wall_sigma_y_list, prey_x, prey_y
     
     x = None
     y = None
@@ -758,9 +765,24 @@ def draw_2d_heatmap_thread(name):
             x_a, y_a, z_a = create_2d_wall_function(wall_x_list[idx],wall_y_list[idx],wall_sigma_x_list[idx],wall_sigma_y_list[idx])
             z = z + z_a
 
+        grad_x, grad_y = create_2d_gradient(a, b, c, d, wall_x_list, wall_y_list, wall_sigma_x_list, wall_sigma_y_list, prey_x, prey_y)
+
+        print(grad_x, grad_y)
+            
         plt.clf()
+        ax = plt.gca()
         plt.contourf(x, y, z, cmap='Reds')
         plt.colorbar()
+        c1 = plt.Circle((prey_x, prey_y), 0.05, color='g')
+
+        g_nor = -np.sqrt(grad_x**2 + grad_y**2) * 5
+        if abs(g_nor - 0.0) > 0.00001:
+            grad_x /= g_nor
+            grad_y /= g_nor
+            l = plt.Line2D([prey_x, prey_x + grad_x], [prey_y, prey_y + grad_y])
+            ax.add_line(l)
+
+        ax.add_artist(c1)
         plt.draw()
         plt.pause(0.01)
 
@@ -777,9 +799,41 @@ def create_2d_gaussian(x0, y0, sigma_x, sigma_y):
 
     x, y = np.meshgrid(x, y)
     z = (1/(2*np.pi*sigma_x*sigma_y) * np.exp(-((x - x0)**2/(2*sigma_x**2)
-	 + (y - y0)**2/(2*sigma_y**2))))
+	 + (y - y0)**2/(2*sigma_y**2)))) * 5
 
     return x, y, z
+
+def create_2d_gradient(x_list, y_list, sigma_x_list, sigma_y_list, w_x_list, w_y_list, w_sigma_x_list, w_sigma_y_list, target_x, target_y): 
+    x = 0.0
+    y = 0.0
+
+    for idx, value in enumerate(x_list):
+        x += 1 / (2 * np.pi * sigma_x_list[idx] * sigma_y_list[idx]) * \
+             np.exp(-(target_x - x_list[idx])**2 / (2*sigma_x_list[idx]**2)) * \
+             np.exp(-(target_y - y_list[idx])**2 / (2*sigma_y_list[idx]**2)) * \
+             -(target_x - x_list[idx])/(sigma_x_list[idx]**2)
+
+        y += 1 / (2 * np.pi * sigma_x_list[idx] * sigma_y_list[idx]) * \
+             np.exp(-(target_x - x_list[idx])**2 / (2*sigma_x_list[idx]**2)) * \
+             np.exp(-(target_y - y_list[idx])**2 / (2*sigma_y_list[idx]**2)) * \
+             -(target_y - y_list[idx])/(sigma_y_list[idx]**2)
+
+
+    for idx, value in enumerate(w_x_list):
+
+        if abs(w_sigma_x_list[idx] - 0.0) > 0.00001:
+            x += 1 / (2 * np.pi * w_sigma_x_list[idx]) * \
+                 np.exp(-(target_x - w_x_list[idx])**2 / (2*w_sigma_x_list[idx]**2)) * \
+                 -(target_x - w_x_list[idx])/(w_sigma_x_list[idx]**2)
+        
+        if abs(w_sigma_y_list[idx] - 0.0) > 0.00001:
+            y += 1 / (2 * np.pi * w_sigma_y_list[idx]) * \
+                 np.exp(-(target_y - w_y_list[idx])**2 / (2*w_sigma_y_list[idx]**2)) * \
+                 -(target_y - w_y_list[idx])/(w_sigma_y_list[idx]**2)
+
+    return x, y
+
+
 
 def create_2d_wall_function(x0, y0, sigma_x, sigma_y):
     
