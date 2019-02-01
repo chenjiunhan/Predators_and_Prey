@@ -8,7 +8,7 @@ The simulation is in Gazebo as following video on Youtube:
 <p>The evolution process in real world:</p>
 <br>
 <p align="center">
-    <a target="_blank" href="http://www.youtube.com/watch?v=fjTd06L-9bQ"><img src="http://img.youtube.com/vi/fjTd06L-9bQ/0.jpg"></a>
+    <a href="http://www.youtube.com/watch?v=fjTd06L-9bQ"><img src="http://img.youtube.com/vi/fjTd06L-9bQ/0.jpg" target="_blank"></a>
 </p>
 <p>This system can be used for numerous robots, at least it works on 8 predators in such small field:</p>
 <br>
