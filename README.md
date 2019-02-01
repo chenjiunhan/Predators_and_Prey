@@ -1,5 +1,5 @@
 # Evolutionary Predator-prey Robot Systems: from simulationto real world
-This is a project about evolutionary predator-prey robot systems: from simulationto real world. The red predators are controller by simple neural network, and the parameters of neural network is evolved by evolutionary algorithm, and the green prey is controlled by Gaussian gradient-based strategy.
+This is a project about evolutionary predator-prey robot systems: from simulationto real world. The red predators are controlled by simple neural network, and the parameters of neural network is evolved by evolutionary algorithm, and the green prey is controlled by Gaussian gradient-based strategy.
 
 The simulation results in Gazebo as shown in following video on Youtube:
 <p align="center">
