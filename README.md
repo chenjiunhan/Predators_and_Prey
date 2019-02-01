@@ -1,5 +1,5 @@
 # Predators and prey
-This is a project about multiple predators and single prey. The red predators are controller by simple neural network, and the parameters of neural network is evolved by evolutionary algorithm, and the green prey is controlled by Gaussian gradient-based controller.
+This is a project about predators and prey. The red predators are controller by simple neural network, and the parameters of neural network is evolved by evolutionary algorithm, and the green prey is controlled by Gaussian gradient-based controller.
 
 The simulation is in Gazebo as following video on Youtube:
 <p align="center">
