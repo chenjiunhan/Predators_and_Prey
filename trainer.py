@@ -19,12 +19,6 @@ from evostra import EvolutionStrategy
 
 DATA_PATH = "data/"
 
-# record fitness
-ff = open('fitness.txt', 'w+')
-ff.close()
-fp = open('fitness_prey.txt', 'w+')
-ff.close()
-
 RANDOM_POSITION = False
 SHOW_DRAW = False
 LOAD_WEIGHT = True
