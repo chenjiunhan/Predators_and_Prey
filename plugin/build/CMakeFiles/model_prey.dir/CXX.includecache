@@ -27,6 +27,12 @@ string
 -
 vector
 -
+iostream
+-
+fstream
+-
+string
+-
 
 /usr/include/gazebo-7/gazebo/Master.hh
 string

@@ -1,3 +1,0 @@
-/home/jaqq/.gazebo/pp/listener/build/CMakeFiles/rebuild_cache.dir
-/home/jaqq/.gazebo/pp/listener/build/CMakeFiles/edit_cache.dir
-/home/jaqq/.gazebo/pp/listener/build/CMakeFiles/listener.dir

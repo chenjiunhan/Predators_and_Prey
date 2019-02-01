@@ -3,7 +3,7 @@
 #include <gazebo/physics/physics.hh>
 #include <gazebo/common/common.hh>
 #include <ignition/math/Vector3.hh>
-
+#include <cmath>
 // listener
 #include <gazebo/transport/transport.hh>
 #include <gazebo/msgs/msgs.hh>
@@ -12,14 +12,22 @@
 #include <string>
 #include <vector>
 
-#define NUM_PREDATOR 4
+//#define NUM_PREDATOR 4
 
 namespace gazebo {
 
-    double *left_wheel_speed = new double[NUM_PREDATOR];
-    double *right_wheel_speed = new double[NUM_PREDATOR];        
+    std::string line;
+    std::ifstream myfile ("/home/jaqq/learning/gazebo/pp/configuration/configuration.txt");
 
-    int *model_reset = new int[NUM_PREDATOR];
+    int NUM_PREDATOR = 1;
+            
+    double *left_wheel_speed;
+    double *right_wheel_speed;   
+    
+    double *predator_x;     
+    double *predator_y;      
+
+    int *model_reset;
     int world_reset = 0;
     
     void leftVector2dMsgCallback(ConstVector2dPtr & vector2d) {
@@ -96,11 +104,70 @@ namespace gazebo {
 
         std::string s = gzString;        
         if (s.find("RESET") != std::string::npos) {
-            world_reset = 1;   
+            world_reset = 1;                         
         } else {
             world_reset = 0;   
         }
     }
+    
+    void xGzStringMsgCallback(const std::string & gzString) {
+        
+        int predator_id = -1;
+        double x = 0.0;
+
+        //std::cout << gzString << "left";
+
+        std::string delimiter = ",";
+        size_t pos = 0;
+        std::string token;
+        int count_token = 0;
+
+        std::string s = gzString;
+
+        while ((pos = s.find(delimiter)) != std::string::npos) {
+            token = s.substr(0, pos);
+            //std::cout << token << std::endl;
+            s.erase(0, pos + delimiter.length());
+
+            if(count_token == 0) {
+                predator_id = std::stoi(token);
+            }
+            count_token++;            
+        }
+        x = std::stod(s);
+
+        predator_x[predator_id - 1] = x;
+    }
+
+    void yGzStringMsgCallback(const std::string & gzString) {
+        int predator_id = -1;
+        double y = 0.0;
+
+        //std::cout << gzString << "right";
+
+        std::string delimiter = ",";
+        size_t pos = 0;
+        std::string token;
+        int count_token = 0;
+
+        std::string s = gzString;
+
+        while ((pos = s.find(delimiter)) != std::string::npos) {
+            token = s.substr(0, pos);
+            //std::cout << token << "??????" << std::endl;
+            s.erase(0, pos + delimiter.length());
+
+            if(count_token == 0) {
+                predator_id = std::stoi(token);
+            }
+
+            count_token++;            
+        }
+        y = std::stod(s);
+
+        predator_y[predator_id - 1] = y;
+    }
+
 
     class ModelPush: public ModelPlugin {
 
@@ -108,12 +175,33 @@ namespace gazebo {
             transport::SubscriberPtr leftWheelSubscriber;
             transport::SubscriberPtr rightWheelSubscriber;
             transport::SubscriberPtr worldReset;
+            transport::SubscriberPtr xSubscriber;
+            transport::SubscriberPtr ySubscriber;
             transport::SubscriberPtr sub;
 
         public:
             int predator_id = -1;
 
-        public: void Load(physics::ModelPtr _model, sdf::ElementPtr /*_sdf*/ ) {
+        public: void Load(physics::ModelPtr _model, sdf::ElementPtr /*_sdf*/ ) {          
+            
+            
+            if (myfile.is_open())
+            {
+                while ( getline (myfile,line) )
+                {
+                    std::cout << line << '\n';
+                    NUM_PREDATOR = std::stoi(line);
+                }
+                myfile.close();
+            }
+            
+            left_wheel_speed = new double[NUM_PREDATOR];
+            right_wheel_speed = new double[NUM_PREDATOR];   
+            
+            predator_x = new double[NUM_PREDATOR];     
+            predator_y = new double[NUM_PREDATOR];      
+
+            model_reset = new int[NUM_PREDATOR];
 
             for(int i = 0; i < NUM_PREDATOR ; i++) {
                 left_wheel_speed[i] = 0.0;               
@@ -132,6 +220,12 @@ namespace gazebo {
 
             gazebo::transport::NodePtr node3(new gazebo::transport::Node());
             node3 -> Init();
+            
+            gazebo::transport::NodePtr node4(new gazebo::transport::Node());
+            node4 -> Init();
+
+            gazebo::transport::NodePtr node5(new gazebo::transport::Node());
+            node5 -> Init();
 
 
             // Create our node for communication
@@ -147,9 +241,10 @@ namespace gazebo {
             //this -> leftWheelSubscriber = node1 -> Subscribe("~/" + model_name + "_left_wheel_speed", leftVector2dMsgCallback);
             //this -> rightWheelSubscriber = node2 -> Subscribe("~/" + model_name + "_right_wheel_speed", rightVector2dMsgCallback);
             this -> leftWheelSubscriber = node1 -> Subscribe("~/" + model_name + "_left_wheel_speed", leftGzStringMsgCallback);
-            this -> rightWheelSubscriber = node2 -> Subscribe("~/" + model_name + "_right_wheel_speed", rightGzStringMsgCallback);
-            
+            this -> rightWheelSubscriber = node2 -> Subscribe("~/" + model_name + "_right_wheel_speed", rightGzStringMsgCallback);            
             this -> worldReset = node3 -> Subscribe("~/world_reset", worldResetGzStringMsgCallback);
+            this -> xSubscriber = node1 -> Subscribe("~/" + model_name + "_x", xGzStringMsgCallback);
+            this -> ySubscriber = node2 -> Subscribe("~/" + model_name + "_y", yGzStringMsgCallback);
 
             /*
             std::regex e ("(\\s+)(\\d+)");
@@ -173,8 +268,11 @@ namespace gazebo {
         public: void OnUpdate() {
             // Apply a small linear velocity to the model.
             if (world_reset == 1) {
-                //std::cout << "RRRRRRRRRRRRRRRR" << std::endl;
+                //std::cout << "RRRRRRRRRRRRRRRR" << std::endl;                
+                ignition::math::Pose3d pose_prey = ignition::math::Pose3d(ignition::math::Vector3d(predator_x[this -> predator_id - 1], predator_y[this -> predator_id - 1], 0), ignition::math::Quaterniond(0, 0, 0));
+                //std::cout << predator_x[this -> predator_id - 1] << "," << predator_y[this -> predator_id - 1] << std::endl;
                 this->model->Reset();
+                this -> model -> SetRelativePose(pose_prey);
                 return;
             }
 
@@ -185,6 +283,7 @@ namespace gazebo {
                 //std::vector<gazebo::physics::JointPtr> jp = this->model->GetJoints();
                 //std::cout << jp[0] ->GetName("thymio_predator::left_wheel_hinge");
                 //std::cout << jp[0]->GetName("thymio_predator::left_wheel_hinge");
+            //std::cout << left_wheel_speed[this -> predator_id - 1] << std::endl;
             this -> model -> GetJoint("thymio_predator::left_wheel_hinge") -> SetVelocity(0, left_wheel_speed[this -> predator_id - 1]);
             this -> model -> GetJoint("thymio_predator::right_wheel_hinge") -> SetVelocity(0, right_wheel_speed[this -> predator_id - 1]);
             //}

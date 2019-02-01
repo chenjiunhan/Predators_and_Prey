@@ -27,6 +27,8 @@ gazebo/math/gzmath.hh
 -
 iostream
 -
+fstream
+-
 string
 -
 math.h

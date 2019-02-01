@@ -17,6 +17,8 @@ gazebo/common/common.hh
 -
 ignition/math/Vector3.hh
 -
+cmath
+-
 gazebo/transport/transport.hh
 -
 gazebo/msgs/msgs.hh
