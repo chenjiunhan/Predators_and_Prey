@@ -15,3 +15,12 @@ The simulation is in Gazebo as following video on Youtube:
 <p align="center">
     <a href="http://www.youtube.com/watch?v=Uhq7wDz3G_Q"><img src="http://img.youtube.com/vi/Uhq7wDz3G_Q/0.jpg"></a>
 </p>
+
+# Usage of simulation environment for Ubuntu 16.04
+1. Install Gazebo 7 http://gazebosim.org/tutorials?tut=install_ubuntu&ver=7.0
+2. Copy models folder to ~/.gazebo/models
+3. Add 
+   export GAZEBO_PLUGIN_PATH=/"PATH TO PLUGIN"/plugin/build:$GAZEBO_PLUGIN_PATH
+   to ~/.bashrc and execute command 
+   source ~/.bashrc
+4. run script ./trainer.sh
