@@ -23,4 +23,10 @@ The simulation is in Gazebo as following video on Youtube:
    export GAZEBO_PLUGIN_PATH=/"PATH TO PLUGIN"/plugin/build:$GAZEBO_PLUGIN_PATH
    to ~/.bashrc and execute command 
    source ~/.bashrc
-4. run script ./trainer.sh
+4. Install Bayesian Optimization module for python3 https://github.com/fmfn/BayesianOptimization
+   pip3 install bayesian-optimization
+5. Install pip install Evolution Strategy module for python3 https://github.com/alirezamika/evostra
+   pip3 install evostra
+6. Install pip install CMA-ES module for python3 https://github.com/CMA-ES/pycma
+   pip3 install cma
+7. run script ./trainer.sh
