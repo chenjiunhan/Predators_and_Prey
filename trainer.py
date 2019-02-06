@@ -431,7 +431,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
         
         
         TURN_SPEED = 5.6 * 0.5
-        STRAIGHT_SPEED = 5.6 * 0.8
+        STRAIGHT_SPEED = 5.6
         
         #TURN_SPEED = 0.0
         #STRAIGHT_SPEED = 0.0
