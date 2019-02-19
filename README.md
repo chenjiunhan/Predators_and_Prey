@@ -5,7 +5,7 @@ The simulation results in Gazebo as shown in following video on Youtube:
 <p align="center">
     <a href="http://www.youtube.com/watch?v=trR2Gc1tLzg"><img src="http://img.youtube.com/vi/trR2Gc1tLzg/0.jpg"></a>
 </p>
-<p> An result of evolution process in real world robots arena as following video:</p>
+<p> An result of evolution process in real world of robots arena as following video:</p>
 <br>
 <p align="center">
     <a href="http://www.youtube.com/watch?v=fjTd06L-9bQ"><img src="http://img.youtube.com/vi/fjTd06L-9bQ/0.jpg"></a>
