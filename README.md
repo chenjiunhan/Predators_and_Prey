@@ -1,4 +1,6 @@
 # Evolutionary Predator-prey Robot Systems: from simulationto real world
+# Part I
+
 This is a project about evolutionary predator-prey robot systems: from simulationto real world. The red predators are controlled by simple neural network, and the parameters of neural network is evolved by evolutionary algorithm, and the green prey is controlled by Gaussian gradient-based strategy.
 
 The simulation results in Gazebo as shown in following video on Youtube:
@@ -30,3 +32,11 @@ The simulation results in Gazebo as shown in following video on Youtube:
 6. Install pip install CMA-ES module for python3 https://github.com/CMA-ES/pycma
    pip3 install cma
 7. run script ./trainer.sh
+
+# Part II
+
+<p align="center">
+    <a href="https://www.youtube.com/watch?v=GwM3_T5b3Lo"><img src="http://img.youtube.com/vi/GwM3_T5b3Lo/0.jpg"></a>
+</p>
+
+# Usage of simulation environment for Ubuntu 16.04
