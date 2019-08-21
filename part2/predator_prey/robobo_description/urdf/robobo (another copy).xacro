@@ -1,0 +1,460 @@
+<?xml version="1.0"?>
+<!-- Revolute-Revolute Manipulator -->
+<robot name="robobo" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Constants for robot dimensions -->
+  <xacro:property name="PI" value="3.1415926535897931"/>
+  <xacro:property name="mass" value="2.0" /> <!-- arbitrary value for mass --> 
+  <xacro:property name="mass_wheel" value="1.0" /> 
+  <xacro:property name="inertia_factor" value="0.7" /> 
+  <xacro:property name="camera_link" value="0.05" /> <!-- Size of square 'camera' box -->
+  <xacro:property name="wheel_horizontal_shift" value="0.08" /> <!-- arbitrary value for mass -->
+  <xacro:property name="wheel_vertical_shift" value="0.020" />
+  <xacro:property name="wheel_pitch" value="${PI/2}" />
+  <xacro:property name="wheel_yaw" value="0" />
+  <xacro:property name="wheel_radius" value="0.03" />
+  <xacro:property name="wheel_length" value="0.02" />
+  <xacro:property name="body_x" value="0.067" />
+  <xacro:property name="body_y" value="0.095" />
+  <xacro:property name="body_z" value="0.020" />
+  <xacro:property name="wheel_r" value="0.030" />
+  <xacro:property name="wheel_h" value="0.024" />
+  <xacro:property name="camera_x" value="0.0" />
+  <xacro:property name="camera_y" value="-0.026" />
+  <xacro:property name="camera_z" value="0.16" />
+  <xacro:property name="camera_roll" value="${PI / 10}" />
+  <xacro:property name="camera_width" value="0.01" />
+  <xacro:property name="center_to_back" value="-0.1" />
+  <xacro:property name="center_to_front" value="0.07" />
+  <xacro:property name="ir_back_vertical_shift" value="0.01" />
+  <xacro:property name="ir_back_angle_diff" value="${PI/4}" />
+  <xacro:property name="ir_back_1_x" value="0.030" />
+  <xacro:property name="ir_back_1_y" value="${center_to_back + ir_back_vertical_shift}" />
+  <xacro:property name="ir_back_1_z" value="${body_z}" />
+  <xacro:property name="ir_back_1_yaw" value="${-PI/2 + ir_back_angle_diff}" />
+  <xacro:property name="ir_back_2_x" value="0.0" />
+  <xacro:property name="ir_back_2_y" value="${center_to_back}" />
+  <xacro:property name="ir_back_2_z" value="${body_z}" />
+  <xacro:property name="ir_back_2_yaw" value="${-PI/2}" />
+  <xacro:property name="ir_back_3_x" value="${-ir_back_1_x}" />
+  <xacro:property name="ir_back_3_y" value="${ir_back_1_y}" />
+  <xacro:property name="ir_back_3_z" value="${body_z}" />
+  <xacro:property name="ir_back_3_yaw" value="${-PI/2 - ir_back_angle_diff}" />
+  <xacro:property name="ir_front_horizontal_shift" value="0.024" />
+  <xacro:property name="ir_front_vertical_shift" value="0.01" />
+  <xacro:property name="ir_front_angle_diff" value="${PI/8}" />
+  <xacro:property name="ir_front_1_x" value="${ir_front_horizontal_shift * -2}" />
+  <xacro:property name="ir_front_1_y" value="${center_to_front + ir_front_vertical_shift * -2}" />
+  <xacro:property name="ir_front_1_z" value="${body_z}" />
+  <xacro:property name="ir_front_1_yaw" value="${PI/2 + ir_front_angle_diff * 2}" />  
+  <xacro:property name="ir_front_2_x" value="${ir_front_horizontal_shift * -1}" />
+  <xacro:property name="ir_front_2_y" value="${center_to_front + ir_front_vertical_shift * -1}" />
+  <xacro:property name="ir_front_2_z" value="${body_z}" />
+  <xacro:property name="ir_front_2_yaw" value="${PI/2 + ir_front_angle_diff * 1}" />  
+  <xacro:property name="ir_front_3_x" value="${ir_front_horizontal_shift * 0}" />
+  <xacro:property name="ir_front_3_y" value="${center_to_front}" />
+  <xacro:property name="ir_front_3_z" value="${body_z}" />
+  <xacro:property name="ir_front_3_yaw" value="${PI/2 + ir_front_angle_diff * 0}" />  
+  <xacro:property name="ir_front_4_x" value="${ir_front_horizontal_shift * 1}" />
+  <xacro:property name="ir_front_4_y" value="${ir_front_2_y}" />
+  <xacro:property name="ir_front_4_z" value="${body_z}" />
+  <xacro:property name="ir_front_4_yaw" value="${PI/2 + ir_front_angle_diff * -1}" />    
+  <xacro:property name="ir_front_5_x" value="${ir_front_horizontal_shift * 2}" />
+  <xacro:property name="ir_front_5_y" value="${ir_front_1_y}" />
+  <xacro:property name="ir_front_5_z" value="${body_z}" />
+  <xacro:property name="ir_front_5_yaw" value="${PI/2 + ir_front_angle_diff * -2}" />  
+  <xacro:property name="ir_width" value="0.01" />    
+  
+  <xacro:arg name="body_color" default="Gazebo/Green"/>  
+  <xacro:arg name="model_name" default="undefined"/>  
+
+  <!-- Import all Gazebo-customization elements, including Gazebo colors -->
+  <xacro:include filename="$(find robobo_description)/urdf/robobo.gazebo" />
+  <!-- Import Rviz colors -->
+  <xacro:include filename="$(find robobo_description)/urdf/materials.xacro" />
+
+  <!-- Used for fixing robot to Gazebo 'base_link' -->    
+
+  <!-- Base Link -->
+  <link name="robobo_link">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <!--<mesh filename="package://robobo_description/meshes/robobo.stl" scale="0.001 0.001 0.001"/>-->
+        
+      </geometry>
+    </collision>
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://robobo_description/meshes/robobo.stl" scale="0.001 0.001 0.001"/>          
+      </geometry>
+    </visual>
+
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="${mass}"/>
+      <inertia
+        ixx="${1/12 * mass * ((2*body_y)**2 + (2*body_z)**2)}" ixy="0.0" ixz="0.0"
+        iyy="${1/12 * mass * ((2*body_x)**2 + (2*body_z)**2)}" iyz="0.0"
+        izz="${1/12 * mass * ((2*body_x)**2 + (2*body_y)**2)}"/>
+    </inertial>
+  </link>
+  
+  <link name="robobo_left_wheel_link">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 ${wheel_pitch} ${wheel_yaw}"/>
+      <geometry>        
+        <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+      </geometry>
+      
+      
+      
+    </collision>
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 ${wheel_pitch} ${wheel_yaw}"/>
+      <geometry>        
+        <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+      </geometry>
+    </visual>
+
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="${mass_wheel}"/>
+      <!--<inertia
+        ixx="${1/2 * mass_wheel * wheel_r ** 2}" ixy="0.0" ixz="0.0"
+        iyy="${1/12 * mass_wheel * (3 * wheel_r ** 2 + wheel_h ** 2)}" iyz="0.0"
+        izz="${1/12 * mass_wheel * (3 * wheel_r ** 2 + wheel_h ** 2)}"/>-->
+      <inertia
+        ixx="${1/2 * mass_wheel * wheel_r ** 2}" ixy="0.0" ixz="0.0"
+        iyy="${1/12 * mass_wheel * (3 * wheel_r ** 2 + wheel_h ** 2)}" iyz="0.0"
+        izz="${1/12 * mass_wheel * (3 * wheel_r ** 2 + wheel_h ** 2)}" />
+    </inertial>
+  </link>
+  
+  <link name="robobo_right_wheel_link">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 ${wheel_pitch} ${wheel_yaw}"/>
+      <geometry>        
+        <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+      </geometry>
+      
+      
+      
+    </collision>
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 ${wheel_pitch} ${wheel_yaw}"/>
+      <geometry>        
+        <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+      </geometry>      
+    </visual>
+
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="${mass_wheel}"/>
+      <inertia
+        ixx="${1/2 * mass_wheel * wheel_r ** 2}" ixy="0.0" ixz="0.0"
+        iyy="${1/12 * mass_wheel * (3 * wheel_r ** 2 + wheel_h ** 2)}" iyz="0.0"
+        izz="${1/12 * mass_wheel * (3 * wheel_r ** 2 + wheel_h ** 2)}"/>
+    </inertial>
+  </link>
+  
+  <joint name="robobo_left_wheel_joint" type="continuous">
+    <axis xyz="-1 0 0" />
+    <origin xyz="${-wheel_horizontal_shift} ${wheel_vertical_shift} 0" rpy="0 0 0"/>
+    <parent link="robobo_link"/>
+    <child link="robobo_left_wheel_link"/>
+  </joint>
+  
+  <joint name="robobo_right_wheel_joint" type="continuous">
+    <axis xyz="-1 0 0" />
+    <origin xyz="${wheel_horizontal_shift} ${wheel_vertical_shift} 0" rpy="0 0 0"/>
+    <parent link="robobo_link"/>
+    <child link="robobo_right_wheel_link"/>
+  </joint>
+  
+  <joint name="camera_joint" type="fixed">
+    <axis xyz="0 1 0" />
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="robobo_link"/>
+    <child link="camera_link"/>
+  </joint>
+
+  <!-- Camera -->
+  <link name="camera_link">
+    <collision>
+      <origin xyz="0 ${camera_y} ${camera_z}" rpy="${camera_roll} 0 0"/>
+      <geometry>
+	    <box size="${camera_width} ${camera_width} ${camera_width}"/>
+      </geometry>
+    </collision>
+
+    <visual>
+      <origin xyz="0 ${camera_y} ${camera_z}" rpy="${camera_roll} 0 0"/>
+      <geometry>
+	    <box size="${camera_width} ${camera_width} ${camera_width}"/>
+      </geometry>
+      <material name="red"/>
+    </visual>
+
+    <inertial>
+      <mass value="1e-5" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+    </inertial>
+  </link>
+  
+  <joint name="camera_optical_joint" type="fixed">
+    <!-- these values have to be these values otherwise the gazebo camera image
+        won't be aligned properly with the frame it is supposedly originating from -->
+    <origin xyz="0 ${camera_y} ${camera_z}" rpy="${-PI/2 - camera_roll} 0 ${-PI/2 -PI/2}"/>
+    <parent link="camera_link"/>
+    <child link="camera_link_optical"/>
+  </joint>
+
+  <link name="camera_link_optical">
+  </link>
+  
+  <joint name="ir_back_1_joint" type="fixed">
+    <axis xyz="0 1 0" />
+    <origin xyz="${ir_back_1_x} ${ir_back_1_y - ir_width/2} 0" rpy="0 0 ${ir_back_1_yaw}"/>
+    <parent link="robobo_link"/>
+    <child link="ir_back_1_link"/>
+  </joint>
+  
+  <link name="ir_back_1_link">
+    <collision>
+      <origin xyz="${-ir_width/2} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ir_width} ${ir_width} ${ir_width}"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="${-ir_width/2} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ir_width} ${ir_width} ${ir_width}"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <mass value="1e-5" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+    </inertial>
+  </link>
+  
+  <joint name="ir_back_2_joint" type="fixed">
+    <axis xyz="0 1 0" />
+    <origin xyz="0 ${ir_back_2_y - ir_width/2} 0" rpy="0 0 ${ir_back_2_yaw}"/>
+    <parent link="robobo_link"/>
+    <child link="ir_back_2_link"/>
+  </joint>
+    
+  <link name="ir_back_2_link">
+    <collision>
+      <origin xyz="${-ir_width/2} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ir_width} ${ir_width} ${ir_width}"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="${-ir_width/2} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ir_width} ${ir_width} ${ir_width}"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <mass value="1e-5" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+    </inertial>
+  </link>
+  
+  <joint name="ir_back_3_joint" type="fixed">
+    <axis xyz="0 1 0" />
+    <origin xyz="${ir_back_3_x} ${ir_back_3_y - ir_width/2} 0" rpy="0 0 ${ir_back_3_yaw}"/>
+    <parent link="robobo_link"/>
+    <child link="ir_back_3_link"/>
+  </joint>
+    
+  <link name="ir_back_3_link">
+    <collision>
+      <origin xyz="${-ir_width/2} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ir_width} ${ir_width} ${ir_width}"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="${-ir_width/2} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ir_width} ${ir_width} ${ir_width}"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <mass value="1e-5" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+    </inertial>
+  </link>
+  
+  <joint name="ir_front_1_joint" type="fixed">
+    <axis xyz="0 1 0" />
+    <origin xyz="${ir_front_1_x} ${ir_front_1_y + ir_width/2} 0" rpy="0 0 ${ir_front_1_yaw}"/>
+    <parent link="robobo_link"/>
+    <child link="ir_front_1_link"/>
+  </joint>
+    
+  <link name="ir_front_1_link">
+    <collision>
+      <origin xyz="${-ir_width/2} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ir_width} ${ir_width} ${ir_width}"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="${-ir_width/2} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ir_width} ${ir_width} ${ir_width}"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <mass value="1e-5" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+    </inertial>
+  </link>
+  
+  <joint name="ir_front_2_joint" type="fixed">
+    <axis xyz="0 1 0" />
+    <origin xyz="${ir_front_2_x} ${ir_front_2_y + ir_width/2} 0" rpy="0 0 ${ir_front_2_yaw}"/>
+    <parent link="robobo_link"/>
+    <child link="ir_front_2_link"/>
+  </joint>
+    
+  <link name="ir_front_2_link">
+    <collision>
+      <origin xyz="${-ir_width/2} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ir_width} ${ir_width} ${ir_width}"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="${-ir_width/2} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ir_width} ${ir_width} ${ir_width}"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <mass value="1e-5" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+    </inertial>
+  </link>
+  
+  <joint name="ir_front_3_joint" type="fixed">
+    <axis xyz="0 1 0" />
+    <origin xyz="${ir_front_3_x} ${ir_front_3_y + ir_width/2} 0" rpy="0 0 ${ir_front_3_yaw}"/>
+    <parent link="robobo_link"/>
+    <child link="ir_front_3_link"/>
+  </joint>
+    
+  <link name="ir_front_3_link">
+    <collision>
+      <origin xyz="${-ir_width/2} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ir_width} ${ir_width} ${ir_width}"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="${-ir_width/2} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ir_width} ${ir_width} ${ir_width}"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <mass value="1e-5" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+    </inertial>
+  </link>
+  
+  <joint name="ir_front_4_joint" type="fixed">
+    <axis xyz="0 1 0" />
+    <origin xyz="${ir_front_4_x} ${ir_front_4_y + ir_width/2} 0" rpy="0 0 ${ir_front_4_yaw}"/>
+    <parent link="robobo_link"/>
+    <child link="ir_front_4_link"/>
+  </joint>
+    
+  <link name="ir_front_4_link">
+    <collision>
+      <origin xyz="${-ir_width/2} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ir_width} ${ir_width} ${ir_width}"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="${-ir_width/2} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ir_width} ${ir_width} ${ir_width}"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <mass value="1e-5" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+    </inertial>
+  </link>
+  
+  <joint name="ir_front_5_joint" type="fixed">
+    <axis xyz="0 1 0" />
+    <origin xyz="${ir_front_5_x} ${ir_front_5_y + ir_width/2} 0" rpy="0 0 ${ir_front_5_yaw}"/>
+    <parent link="robobo_link"/>
+    <child link="ir_front_5_link"/>
+  </joint>
+    
+  <link name="ir_front_5_link">
+    <collision>
+      <origin xyz="${-ir_width/2} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ir_width} ${ir_width} ${ir_width}"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="${-ir_width/2} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ir_width} ${ir_width} ${ir_width}"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <mass value="1e-5" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+    </inertial>
+  </link>
+  
+  <transmission name="tran1">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="robobo_left_wheel_joint">
+      <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="robobo_left_wheel_joint_actuator">
+      <hardwareInterface>VelocityJointInterface</hardwareInterface>
+      <mechanicalReduction>7</mechanicalReduction>
+    </actuator>
+  </transmission>
+
+  <transmission name="tran2">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="robobo_right_wheel_joint">
+      <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="robobo_right_wheel_joint_actuator">
+      <hardwareInterface>VelocityJointInterface</hardwareInterface>
+      <mechanicalReduction>7</mechanicalReduction>
+    </actuator>
+  </transmission>
+  
+
+</robot>
